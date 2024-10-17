@@ -1,0 +1,18 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "go: build",
+			"command": "go build -gcflags \"all=-N -l\" -o ./bin/server .",
+			"problemMatcher": [
+				"$go"
+			],
+			"group": {
+                "kind": "build",
+                "isDefault": true
+            },
+			"detail": "Build Go application"
+		}
+	]
+}
