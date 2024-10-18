@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "exec",
-            "program": "./bin/server"
+            "program": "./server"
         }
     ]
 }

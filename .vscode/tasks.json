@@ -4,7 +4,7 @@
 		{
 			"type": "shell",
 			"label": "go: build",
-			"command": "go build -gcflags \"all=-N -l\" -o ./bin/server .",
+			"command": "go build -gcflags \"all=-N -l\" -o ./server .",
 			"problemMatcher": [
 				"$go"
 			],

@@ -4,25 +4,59 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"sync/atomic"
 )
 
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
+
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cfg.fileserverHits.Add(1)
+		next.ServeHTTP(w, req)
+	})
+}
+
+func (cfg *apiConfig) metricsShow(w http.ResponseWriter, req *http.Request) {
+	val := cfg.fileserverHits.Load()
+	w.Header().Add("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	stringVal := fmt.Sprintf(`
+		<html>
+  		<body>
+    		<h1>Welcome, Chirpy Admin</h1>
+    		<p>Chirpy has been visited %d times!</p>
+  		</body>
+		</html>
+	`, val)
+	w.Write([]byte(stringVal))
+}
+
+func (cfg *apiConfig) metricsReset(w http.ResponseWriter, req *http.Request) {
+	cfg.fileserverHits.Swap(0)
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+}
+
+func readinessHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
 func main() {
-	if _, err := os.Stat("./index.html"); os.IsNotExist(err) {
-		log.Fatalf("index.html not found: %v", err)
-	}
+	var cfg apiConfig
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Serving %s to %s", r.URL.Path, r.RemoteAddr)
-		http.ServeFile(w, r, "./index.html")
-	})
+	mux.HandleFunc("GET /api/healthz", readinessHandler)
 
-	mux.HandleFunc("/assets/logo.png", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Serving %s to %s", r.URL.Path, r.RemoteAddr)
-		http.ServeFile(w, r, "./assets/logo.png")
-	})
+	mux.HandleFunc("POST /admin/reset", cfg.metricsReset)
+
+	mux.HandleFunc("GET /admin/metrics", cfg.metricsShow)
+
+	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir("./html/")))))
 
 	srv := &http.Server{
 		Handler: mux,
