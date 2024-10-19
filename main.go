@@ -46,8 +46,7 @@ type chirp_model struct {
 }
 
 type chirp_create struct {
-	Body   string `json:"body"`
-	UserId string `json:"user_id"`
+	Body string `json:"body"`
 }
 
 type auth_model struct {
@@ -237,7 +236,7 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err = auth.ValidateJWT(token, cfg.jwt_secret)
+	user_id, err := auth.ValidateJWT(token, cfg.jwt_secret)
 	if err != nil {
 		log.Printf("Error validating jwt: %s", err)
 		respondWithError(w, http.StatusUnauthorized, err.Error())
@@ -261,8 +260,7 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, req *http.Request) {
 
 	lowerBody := cleanChirpText(params.Body)
 
-	u, err := uuid.Parse(params.UserId)
-	var c = database.CreateChirpParams{Body: lowerBody, UserID: u}
+	var c = database.CreateChirpParams{Body: lowerBody, UserID: user_id}
 
 	chirp, err := cfg.db.CreateChirp(req.Context(), c)
 	if err != nil {
