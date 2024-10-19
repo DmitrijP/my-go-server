@@ -22,3 +22,35 @@ content-type: application/json
 {
   "body": "This is an opinion I need to share with the world This is an opinion I need to share This is an opinion I need to share withThis is an opinion I need to share withThis is an opinion I need to share withThis is an opinion I need to share withwith the world"
 }
+
+#### RESET DB
+
+POST http://localhost:8080/admin/reset HTTP/1.1
+content-type: application/json
+
+#### create email
+
+POST http://localhost:8080/api/users HTTP/1.1
+content-type: application/json
+
+{
+  "email": "dmitrij.patuk2@gmx.de"
+}
+
+#### Create Chirp
+
+POST http://localhost:8080/api/chirps HTTP/1.1
+content-type: application/json
+
+{
+  "body" : "hallo",
+  "user_id" : "87cb947e-0fde-42a2-849a-1ea668f38876"
+}
+
+#### get all chirps
+
+GET http://localhost:8080/api/chirps HTTP/1.1
+
+#### get one chirp
+
+GET http://localhost:8080/api/chirps/9552b9cf-a1d9-4aa6-b640-958c3a21027c HTTP/1.1

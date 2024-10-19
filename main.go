@@ -1,20 +1,52 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/DmitrijP/my-go-server/internal/database"
+	"github.com/google/uuid"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             database.Queries
 }
 
 type parameters struct {
 	Body string `json:"body"`
+}
+
+type user_model struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Email     string `json:"email"`
+}
+
+type chirp_model struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Body      string `json:"body"`
+	UserId    string `json:"user_id"`
+}
+
+type chirp_create struct {
+	Body   string `json:"body"`
+	UserId string `json:"user_id"`
+}
+
+type user_create struct {
+	Email string `json:"email"`
 }
 
 type http_error struct {
@@ -48,7 +80,17 @@ func (cfg *apiConfig) metricsShow(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) metricsReset(w http.ResponseWriter, req *http.Request) {
+	p := os.Getenv("PLATFORM")
+	if p != "dev" {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 	cfg.fileserverHits.Swap(0)
+	err := cfg.db.DeleteAllUsers(req.Context())
+	if err != nil {
+		//TODO handle
+	}
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
@@ -102,10 +144,29 @@ func cleanChirpText(input string) string {
 	return input
 }
 
-func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) usersHandler(w http.ResponseWriter, req *http.Request) {
 
 	decoder := json.NewDecoder(req.Body)
-	params := parameters{}
+	params := user_create{}
+	err := decoder.Decode(&params)
+	w.Header().Set("Content-Type", "application/json")
+
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	user, _ := cfg.db.CreateUser(req.Context(), params.Email)
+
+	resObj := user_model{Id: user.ID.String(), CreatedAt: user.CreatedAt.String(), UpdatedAt: user.UpdatedAt.String(), Email: user.Email}
+	respondWithJSON(w, http.StatusCreated, resObj)
+}
+
+func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, req *http.Request) {
+
+	decoder := json.NewDecoder(req.Body)
+	params := chirp_create{}
 	err := decoder.Decode(&params)
 	w.Header().Set("Content-Type", "application/json")
 
@@ -122,18 +183,79 @@ func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
 
 	lowerBody := cleanChirpText(params.Body)
 
-	resObj := http_resp{CleanedBody: lowerBody}
-	respondWithJSON(w, http.StatusOK, resObj)
+	u, err := uuid.Parse(params.UserId)
+	var c = database.CreateChirpParams{Body: lowerBody, UserID: u}
+
+	chirp, _ := cfg.db.CreateChirp(req.Context(), c)
+
+	resObj := chirp_model{Id: chirp.ID.String(), CreatedAt: chirp.CreatedAt.String(), UpdatedAt: chirp.UpdatedAt.String(), Body: chirp.Body, UserId: chirp.UserID.String()}
+	respondWithJSON(w, http.StatusCreated, resObj)
+}
+
+func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, req *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	chirps, _ := cfg.db.GetAllChirps(req.Context())
+	var chirp_models []chirp_model
+	for _, chirp := range chirps {
+		chirp_models = append(chirp_models,
+			chirp_model{
+				Id:        chirp.ID.String(),
+				CreatedAt: chirp.CreatedAt.String(),
+				UpdatedAt: chirp.UpdatedAt.String(),
+				Body:      chirp.Body,
+				UserId:    chirp.UserID.String(),
+			})
+	}
+
+	respondWithJSON(w, http.StatusOK, chirp_models)
+}
+
+func (cfg *apiConfig) getOneChirpsHandler(w http.ResponseWriter, req *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	chirpId := req.PathValue("chirpID")
+	chirpUuid, err := uuid.Parse(chirpId)
+	if err != nil {
+		//TODO
+	}
+
+	chirp, err := cfg.db.GetOneChirp(req.Context(), chirpUuid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	chirp_model := chirp_model{
+		Id:        chirp.ID.String(),
+		CreatedAt: chirp.CreatedAt.String(),
+		UpdatedAt: chirp.UpdatedAt.String(),
+		Body:      chirp.Body,
+		UserId:    chirp.UserID.String(),
+	}
+	respondWithJSON(w, http.StatusOK, chirp_model)
 }
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, _ := sql.Open("postgres", dbURL)
+	dbQueries := database.New(db)
+
 	var cfg apiConfig
+	cfg.db = *dbQueries
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 
-	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+	mux.HandleFunc("POST /api/users", cfg.usersHandler)
+
+	mux.HandleFunc("POST /api/chirps", cfg.chirpsHandler)
+
+	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
+
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getOneChirpsHandler)
 
 	mux.HandleFunc("POST /admin/reset", cfg.metricsReset)
 

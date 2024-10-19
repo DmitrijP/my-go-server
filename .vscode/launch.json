@@ -11,6 +11,16 @@
             "request": "launch",
             "mode": "exec",
             "program": "./server"
+        },
+        {
+            "name": "Launch",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}",
+            "env": {},
+            "args": [],
+            "buildFlags": "-o ./server"
         }
     ]
 }
