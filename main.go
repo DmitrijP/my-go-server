@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/DmitrijP/my-go-server/internal/auth"
 	"github.com/DmitrijP/my-go-server/internal/database"
@@ -19,6 +20,7 @@ import (
 )
 
 type apiConfig struct {
+	jwt_secret     string
 	fileserverHits atomic.Int32
 	db             database.Queries
 }
@@ -32,6 +34,7 @@ type user_model struct {
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 	Email     string `json:"email"`
+	Token     string `json:"token"`
 }
 
 type chirp_model struct {
@@ -48,8 +51,9 @@ type chirp_create struct {
 }
 
 type auth_model struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	ExpireInSeconds *int   `json:"expires_in_seconds,omitempty"`
 }
 
 type user_create struct {
@@ -165,6 +169,11 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	expirationTime := 60 * 60
+	if params.ExpireInSeconds != nil && *params.ExpireInSeconds < expirationTime {
+		expirationTime = *params.ExpireInSeconds
+	}
+
 	usr, err := cfg.db.SelectUserByEmail(req.Context(), params.Email)
 	if err != nil {
 		log.Printf("Error selecting user: %s", err)
@@ -179,7 +188,20 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resObj := user_model{Id: usr.ID.String(), CreatedAt: usr.CreatedAt.String(), UpdatedAt: usr.UpdatedAt.String(), Email: usr.Email}
+	token, err := auth.MakeJWT(usr.ID, cfg.jwt_secret, time.Duration(expirationTime)*time.Second)
+	if err != nil {
+		log.Printf("Error creating jwt: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	resObj := user_model{
+		Id:        usr.ID.String(),
+		CreatedAt: usr.CreatedAt.String(),
+		UpdatedAt: usr.UpdatedAt.String(),
+		Email:     usr.Email,
+		Token:     token,
+	}
 	respondWithJSON(w, http.StatusOK, resObj)
 }
 
@@ -208,10 +230,22 @@ func (cfg *apiConfig) usersHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Error fetching Bearer Token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
 
+	_, err = auth.ValidateJWT(token, cfg.jwt_secret)
+	if err != nil {
+		log.Printf("Error validating jwt: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
 	decoder := json.NewDecoder(req.Body)
 	params := chirp_create{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	w.Header().Set("Content-Type", "application/json")
 
 	if err != nil {
@@ -230,7 +264,12 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, req *http.Request) {
 	u, err := uuid.Parse(params.UserId)
 	var c = database.CreateChirpParams{Body: lowerBody, UserID: u}
 
-	chirp, _ := cfg.db.CreateChirp(req.Context(), c)
+	chirp, err := cfg.db.CreateChirp(req.Context(), c)
+	if err != nil {
+		log.Printf("Error saving chirp: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
 
 	resObj := chirp_model{Id: chirp.ID.String(), CreatedAt: chirp.CreatedAt.String(), UpdatedAt: chirp.UpdatedAt.String(), Body: chirp.Body, UserId: chirp.UserID.String()}
 	respondWithJSON(w, http.StatusCreated, resObj)
@@ -282,12 +321,15 @@ func (cfg *apiConfig) getOneChirpsHandler(w http.ResponseWriter, req *http.Reque
 
 func main() {
 	godotenv.Load()
+	jwt_secret := os.Getenv("JWT_SECRET")
+
 	dbURL := os.Getenv("DB_URL")
 	db, _ := sql.Open("postgres", dbURL)
 	dbQueries := database.New(db)
 
 	var cfg apiConfig
 	cfg.db = *dbQueries
+	cfg.jwt_secret = jwt_secret
 
 	mux := http.NewServeMux()
 

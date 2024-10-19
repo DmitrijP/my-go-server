@@ -45,22 +45,26 @@ content-type: application/json
 
 {
   "email": "dmitrij.patuk@gmx.de",
-  "password": "12345678"
+  "password": "1234567",
+  "expires_in_seconds": 5
 }
 
 #### Create Chirp
 
 POST http://localhost:8080/api/chirps HTTP/1.1
 content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaGlycHkiLCJzdWIiOiI0NjNhNGM0OS03Y2RkLTQ5MjQtYjE0MC0wYzhmNTZjNmFiMjUiLCJleHAiOjE3MjkzNzQ1NTQsIm5iZiI6MTcyOTM3NDU0OSwiaWF0IjoxNzI5Mzc0NTQ5fQ.P4HZ4mCvmFBz7makkoQEjHpkv-1hetmbS-fcGy8B7JE
 
 {
   "body" : "hallo",
-  "user_id" : "87cb947e-0fde-42a2-849a-1ea668f38876"
+  "user_id" : "463a4c49-7cdd-4924-b140-0c8f56c6ab25"
 }
 
 #### get all chirps
 
 GET http://localhost:8080/api/chirps HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaGlycHkiLCJzdWIiOiI0NjNhNGM0OS03Y2RkLTQ5MjQtYjE0MC0wYzhmNTZjNmFiMjUiLCJleHAiOjE3MjkzNzY1NjcsIm5iZiI6MTcyOTM3Mjk2NywiaWF0IjoxNzI5MzcyOTY3fQ.wHqhWudm0Gf9SnCWNcMEvft6ndPmmLlfe_1Uvjt98Lg
+
 
 #### get one chirp
 
