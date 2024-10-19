@@ -5,7 +5,16 @@ content-type: application/json
   "body": "This is an opinion I need to share with the world"
 }
 
-####
+#### bad words
+
+POST http://localhost:8080/api/validate_chirp HTTP/1.1
+content-type: application/json
+
+{
+  "body": "This is kerfuffle! an opinion sharbert I fornax need to share with the world"
+}
+
+#### too long
 
 POST http://localhost:8080/api/validate_chirp HTTP/1.1
 content-type: application/json

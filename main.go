@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -21,7 +22,7 @@ type http_error struct {
 }
 
 type http_resp struct {
-	Valid bool `json:"valid"`
+	CleanedBody string `json:"cleaned_body"`
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -63,10 +64,10 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	dat, err := json.Marshal(errorObj)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
-		w.WriteHeader(code)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(code)
 	w.Write(dat)
 }
 
@@ -79,6 +80,26 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	}
 	w.WriteHeader(code)
 	w.Write(dat)
+}
+
+var forbiddenWords = []string{
+	"kerfuffle",
+	"sharbert",
+	"fornax",
+}
+
+func cleanChirpText(input string) string {
+	words := strings.Split(input, " ")
+	for i, word := range words {
+		for _, forbidden := range forbiddenWords {
+			word = strings.ToLower(word)
+			if word == forbidden {
+				words[i] = "****"
+			}
+		}
+	}
+	input = strings.Join(words, " ")
+	return input
 }
 
 func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
@@ -98,7 +119,10 @@ func validateChirpHandler(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
-	resObj := http_resp{Valid: true}
+
+	lowerBody := cleanChirpText(params.Body)
+
+	resObj := http_resp{CleanedBody: lowerBody}
 	respondWithJSON(w, http.StatusOK, resObj)
 }
 
