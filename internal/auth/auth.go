@@ -17,7 +17,7 @@ func CheckPasswordHash(password, hash string) error {
 	err := bcrypt.CompareHashAndPassword(
 		[]byte(hash),
 		[]byte(password))
-	if err != bcrypt.ErrMismatchedHashAndPassword {
+	if err != nil {
 		return err
 	}
 

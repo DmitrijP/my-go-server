@@ -45,7 +45,7 @@ content-type: application/json
 
 {
   "email": "dmitrij.patuk@gmx.de",
-  "password": "1234567"
+  "password": "12345678"
 }
 
 #### Create Chirp
