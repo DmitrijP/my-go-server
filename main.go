@@ -10,7 +10,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/DmitrijP/my-go-server/internal/auth"
 	"github.com/DmitrijP/my-go-server/internal/database"
+
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -45,8 +47,14 @@ type chirp_create struct {
 	UserId string `json:"user_id"`
 }
 
+type auth_model struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type user_create struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type http_error struct {
@@ -144,6 +152,37 @@ func cleanChirpText(input string) string {
 	return input
 }
 
+func (cfg *apiConfig) loginHandler(w http.ResponseWriter, req *http.Request) {
+
+	decoder := json.NewDecoder(req.Body)
+	params := auth_model{}
+	err := decoder.Decode(&params)
+	w.Header().Set("Content-Type", "application/json")
+
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	usr, err := cfg.db.SelectUserByEmail(req.Context(), params.Email)
+	if err != nil {
+		log.Printf("Error selecting user: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	err = auth.CheckPasswordHash(params.Password, usr.HashedPassword)
+	if err != nil {
+		log.Printf("Error comparing passwords: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	resObj := user_model{Id: usr.ID.String(), CreatedAt: usr.CreatedAt.String(), UpdatedAt: usr.UpdatedAt.String(), Email: usr.Email}
+	respondWithJSON(w, http.StatusOK, resObj)
+}
+
 func (cfg *apiConfig) usersHandler(w http.ResponseWriter, req *http.Request) {
 
 	decoder := json.NewDecoder(req.Body)
@@ -156,8 +195,13 @@ func (cfg *apiConfig) usersHandler(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
+	hpass, err := auth.HashPassword(params.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Unknown Error")
+	}
 
-	user, _ := cfg.db.CreateUser(req.Context(), params.Email)
+	user, _ := cfg.db.CreateUser(req.Context(), database.CreateUserParams{Email: params.Email, HashedPassword: hpass})
 
 	resObj := user_model{Id: user.ID.String(), CreatedAt: user.CreatedAt.String(), UpdatedAt: user.UpdatedAt.String(), Email: user.Email}
 	respondWithJSON(w, http.StatusCreated, resObj)
@@ -248,6 +292,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
+
+	mux.HandleFunc("POST /api/login", cfg.loginHandler)
 
 	mux.HandleFunc("POST /api/users", cfg.usersHandler)
 
