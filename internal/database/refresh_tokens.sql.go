@@ -41,7 +41,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (Refre
 }
 
 const getOneToken = `-- name: GetOneToken :one
-SELECT token, created_at, updated_at, expires_at, revoked_at, user_id FROM refresh_tokens WHERE token = $1 ORDER BY created_at ASC LIMIT 1
+SELECT token, created_at, updated_at, expires_at, revoked_at, user_id FROM refresh_tokens WHERE token = $1 ORDER BY created_at DESC LIMIT 1
 `
 
 func (q *Queries) GetOneToken(ctx context.Context, token string) (RefreshToken, error) {
@@ -59,7 +59,7 @@ func (q *Queries) GetOneToken(ctx context.Context, token string) (RefreshToken, 
 }
 
 const revokeToken = `-- name: RevokeToken :exec
-UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1
+UPDATE refresh_tokens SET revoked_at = NOW(), updated_at = NOW() WHERE token = $1
 `
 
 func (q *Queries) RevokeToken(ctx context.Context, token string) error {

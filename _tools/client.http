@@ -13,6 +13,17 @@ content-type: {{contentType}}
   "password": "1234567"
 }
 
+#### update user
+# @name update_user
+PUT http://{{host}}/api/users HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "email": "dmitrij.patuk2@gmx.de",
+  "password": "12345678"
+}
+
 #### login user
 # @name login
 @authToken = {{login.response.body.token}}
@@ -23,7 +34,7 @@ content-type: {{contentType}}
 
 {
   "email": "dmitrij.patuk@gmx.de",
-  "password": "1234567",
+  "password": "12345678",
   "expires_in_seconds": 60
 }
 

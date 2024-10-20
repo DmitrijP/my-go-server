@@ -43,6 +43,69 @@ func (cfg *ApiConfig) MetricsShow(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(stringVal))
 }
 
+func (cfg *ApiConfig) ChangeUserPasswordHandler(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Error fetching Bearer Token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	id, err := auth.ValidateJWT(token, cfg.Jwt_secret)
+	if err != nil {
+		log.Printf("Error validating jwt: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	usr, err := cfg.Db.SelectUserById(req.Context(), id)
+	if err != nil {
+		log.Printf("Error selecting usr: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := user_create{}
+	err = decoder.Decode(&params)
+	w.Header().Set("Content-Type", "application/json")
+
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Something went wrong")
+		return
+	}
+	hpass, err := auth.HashPassword(params.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Unknown Error")
+		return
+	}
+
+	updtParams := database.UpdateEmailAndPasswordParams{ID: usr.ID, Email: params.Email, HashedPassword: hpass}
+	err = cfg.Db.UpdateEmailAndPassword(req.Context(), updtParams)
+	if err != nil {
+		log.Printf("Error creating user: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "User may already exist")
+		return
+	}
+
+	updtUsr, err := cfg.Db.SelectUserById(req.Context(), id)
+	if err != nil {
+		log.Printf("Error selecting usr: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	res := user_create_response{
+		Id:        updtUsr.ID.String(),
+		Email:     updtUsr.Email,
+		CreatedAt: updtUsr.CreatedAt.String(),
+		UpdatedAt: updtUsr.UpdatedAt.String(),
+	}
+	respondWithJSON(w, http.StatusOK, res)
+}
+
 func (cfg *ApiConfig) UsersHandler(w http.ResponseWriter, req *http.Request) {
 
 	decoder := json.NewDecoder(req.Body)

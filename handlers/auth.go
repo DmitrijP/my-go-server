@@ -74,8 +74,9 @@ func (cfg *ApiConfig) LoginHandler(w http.ResponseWriter, req *http.Request) {
 	tkParams := database.CreateTokenParams{
 		UserID:    usr.ID,
 		Token:     refresh,
-		ExpiresAt: time.Now().Add(time.Duration(24) * time.Hour * 60),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
+
 	_, err = cfg.Db.CreateToken(req.Context(), tkParams)
 	if err != nil {
 		log.Printf("Error creating refresh: %s", err)
@@ -95,27 +96,29 @@ func (cfg *ApiConfig) LoginHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *ApiConfig) RefreshHandler(w http.ResponseWriter, req *http.Request) {
-	decoder := json.NewDecoder(req.Body)
-	params := refresh_model{}
-	err := decoder.Decode(&params)
-	w.Header().Set("Content-Type", "application/json")
-
+	token, err := auth.GetBearerToken(req.Header)
 	if err != nil {
-		log.Printf("Error decoding parameters: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		log.Printf("Error fetching Bearer Token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	tok, err := cfg.Db.GetOneToken(req.Context(), params.RefreshToken)
+	tok, err := cfg.Db.GetOneToken(req.Context(), token)
 	if err != nil {
 		log.Printf("Error selecting token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusUnauthorized, "Refresh token expired")
 		return
 	}
 
-	if tok.ExpiresAt.After(time.Now()) {
+	if tok.ExpiresAt.Before(time.Now()) {
 		log.Printf("Refresh expired: %s", err)
 		respondWithError(w, http.StatusUnauthorized, "Refresh token expired")
+		return
+	}
+
+	if tok.RevokedAt.Valid && tok.RevokedAt.Time.After(time.Now()) {
+		log.Printf("Refresh revoked: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Refresh token revoked")
 		return
 	}
 
@@ -151,11 +154,11 @@ func (cfg *ApiConfig) RevokeHandler(w http.ResponseWriter, req *http.Request) {
 	tok, err := cfg.Db.GetOneToken(req.Context(), token)
 	if err != nil {
 		log.Printf("Error selecting token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusUnauthorized, "Refresh token expired")
 		return
 	}
 
-	if tok.ExpiresAt.After(time.Now()) {
+	if tok.ExpiresAt.Before(time.Now()) {
 		log.Printf("Refresh expired: %s", err)
 		respondWithError(w, http.StatusUnauthorized, "Refresh token expired")
 		return
@@ -164,7 +167,7 @@ func (cfg *ApiConfig) RevokeHandler(w http.ResponseWriter, req *http.Request) {
 	err = cfg.Db.RevokeToken(req.Context(), tok.Token)
 	if err != nil {
 		log.Printf("Refresh revokation failed: %s", err)
-		respondWithError(w, http.StatusUnauthorized, "Something went wrong")
+		respondWithError(w, http.StatusUnauthorized, "Refresh token expired")
 		return
 	}
 	respondWithoutBody(w, http.StatusNoContent)
