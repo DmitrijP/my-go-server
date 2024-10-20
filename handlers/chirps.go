@@ -71,14 +71,27 @@ func (cfg *ApiConfig) ChirpsHandler(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *ApiConfig) GetAllChirpsHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	sortDir := "asc"
+	sortParam := req.URL.Query().Get("sort")
+	if sortParam == "desc" {
+		sortDir = "desc"
+	}
 
 	s := req.URL.Query().Get("author_id")
 	qId, err := uuid.Parse(s)
 	var chirps []database.Chirp
 	if s != "" && err != nil {
-		chirps, _ = cfg.Db.GetAllChirpsByAuthor(req.Context(), qId)
+		if sortDir == "asc" {
+			chirps, _ = cfg.Db.GetAllChirpsByAuthor(req.Context(), qId)
+		} else {
+			chirps, _ = cfg.Db.GetAllChirpsByAuthorDesc(req.Context(), qId)
+		}
 	} else {
-		chirps, _ = cfg.Db.GetAllChirps(req.Context())
+		if sortDir == "asc" {
+			chirps, _ = cfg.Db.GetAllChirps(req.Context())
+		} else {
+			chirps, _ = cfg.Db.GetAllChirpsDesc(req.Context())
+		}
 	}
 
 	var chirp_models []chirp_model
