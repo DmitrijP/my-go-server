@@ -70,23 +70,17 @@ func (cfg *ApiConfig) ChirpsHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *ApiConfig) GetAllChirpsHandler(w http.ResponseWriter, req *http.Request) {
-	token, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		log.Printf("Error fetching Bearer Token: %s", err)
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	_, err = auth.ValidateJWT(token, cfg.Jwt_secret)
-	if err != nil {
-		log.Printf("Error validating jwt: %s", err)
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
-	chirps, _ := cfg.Db.GetAllChirps(req.Context())
+	s := req.URL.Query().Get("author_id")
+	qId, err := uuid.Parse(s)
+	var chirps []database.Chirp
+	if s != "" && err != nil {
+		chirps, _ = cfg.Db.GetAllChirpsByAuthor(req.Context(), qId)
+	} else {
+		chirps, _ = cfg.Db.GetAllChirps(req.Context())
+	}
+
 	var chirp_models []chirp_model
 	for _, chirp := range chirps {
 		chirp_models = append(chirp_models,

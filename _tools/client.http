@@ -85,6 +85,11 @@ Authorization: Bearer {{authToken}}
 GET http://{{host}}/api/chirps HTTP/1.1
 Authorization: Bearer {{authToken}}
 
+#### get all chirps for user
+# @name get_all_chirps
+GET http://{{host}}/api/chirps?author_id={{usesrId}} HTTP/1.1
+Authorization: Bearer {{authToken}}
+
 
 #### get one chirp
 GET http://{{host}}/api/chirps/{{chirp_id}} HTTP/1.1
