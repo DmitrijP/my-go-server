@@ -103,20 +103,6 @@ func (cfg *ApiConfig) GetAllChirpsHandler(w http.ResponseWriter, req *http.Reque
 }
 
 func (cfg *ApiConfig) GetOneChirpsHandler(w http.ResponseWriter, req *http.Request) {
-	token, err := auth.GetBearerToken(req.Header)
-	if err != nil {
-		log.Printf("Error fetching Bearer Token: %s", err)
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	_, err = auth.ValidateJWT(token, cfg.Jwt_secret)
-	if err != nil {
-		log.Printf("Error validating jwt: %s", err)
-		respondWithError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	chirpId := req.PathValue("chirpID")
 	chirpUuid, err := uuid.Parse(chirpId)
@@ -139,6 +125,50 @@ func (cfg *ApiConfig) GetOneChirpsHandler(w http.ResponseWriter, req *http.Reque
 		UserId:    chirp.UserID.String(),
 	}
 	respondWithJSON(w, http.StatusOK, chirp_model)
+}
+
+func (cfg *ApiConfig) DeleteChirpHandler(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		log.Printf("Error fetching Bearer Token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	id, err := auth.ValidateJWT(token, cfg.Jwt_secret)
+	if err != nil {
+		log.Printf("Error validating jwt: %s", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	chirpId := req.PathValue("chirpID")
+	chirpUuid, err := uuid.Parse(chirpId)
+	if err != nil {
+		log.Printf("Error parsing chirp id: %s", err)
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	chirp, err := cfg.Db.GetOneChirp(req.Context(), chirpUuid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	if id != chirp.UserID {
+		respondWithError(w, http.StatusForbidden, "Forbidden to delete foreign chirps")
+		return
+	}
+
+	err = cfg.Db.DeleteChirp(req.Context(), chirpUuid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	respondWithoutBody(w, http.StatusNoContent)
 }
 
 var forbiddenWords = []string{

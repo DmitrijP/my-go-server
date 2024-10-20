@@ -13,3 +13,6 @@ SELECT * FROM chirps WHERE id = $1 ORDER BY created_at ASC LIMIT 1;
 
 -- name: DeleteAllChirps :exec
 DELETE FROM chirps;
+
+-- name: DeleteChirp :exec
+DELETE FROM chirps WHERE id = $1;
