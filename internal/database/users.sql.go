@@ -16,7 +16,7 @@ INSERT INTO users (id, created_at, updated_at, email, hashed_password)
 VALUES (
     gen_random_uuid(), NOW(), NOW(), $1, $2
 )
-RETURNING id, created_at, updated_at, email, hashed_password
+RETURNING id, created_at, updated_at, email, hashed_password, is_chirpy_red
 `
 
 type CreateUserParams struct {
@@ -33,6 +33,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -47,7 +48,7 @@ func (q *Queries) DeleteAllUsers(ctx context.Context) error {
 }
 
 const selectUserByEmail = `-- name: SelectUserByEmail :one
-SELECT id, created_at, updated_at, email, hashed_password FROM users WHERE email like $1 LIMIT 1
+SELECT id, created_at, updated_at, email, hashed_password, is_chirpy_red FROM users WHERE email like $1 LIMIT 1
 `
 
 func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, error) {
@@ -59,12 +60,13 @@ func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, er
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
 
 const selectUserById = `-- name: SelectUserById :one
-SELECT id, created_at, updated_at, email, hashed_password FROM users WHERE id = $1 LIMIT 1
+SELECT id, created_at, updated_at, email, hashed_password, is_chirpy_red FROM users WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) SelectUserById(ctx context.Context, id uuid.UUID) (User, error) {
@@ -76,8 +78,23 @@ func (q *Queries) SelectUserById(ctx context.Context, id uuid.UUID) (User, error
 		&i.UpdatedAt,
 		&i.Email,
 		&i.HashedPassword,
+		&i.IsChirpyRed,
 	)
 	return i, err
+}
+
+const updateChirpyRed = `-- name: UpdateChirpyRed :exec
+UPDATE users SET is_chirpy_red = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateChirpyRedParams struct {
+	IsChirpyRed bool
+	ID          uuid.UUID
+}
+
+func (q *Queries) UpdateChirpyRed(ctx context.Context, arg UpdateChirpyRedParams) error {
+	_, err := q.db.ExecContext(ctx, updateChirpyRed, arg.IsChirpyRed, arg.ID)
+	return err
 }
 
 const updateEmailAndPassword = `-- name: UpdateEmailAndPassword :exec

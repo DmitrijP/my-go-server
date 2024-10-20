@@ -20,6 +20,7 @@ type parameters struct {
 func main() {
 	godotenv.Load()
 	jwt_secret := os.Getenv("JWT_SECRET")
+	polka_key := os.Getenv("POLKA_KEY")
 
 	dbURL := os.Getenv("DB_URL")
 	db, _ := sql.Open("postgres", dbURL)
@@ -28,10 +29,13 @@ func main() {
 	var cfg handlers.ApiConfig
 	cfg.Db = *dbQueries
 	cfg.Jwt_secret = jwt_secret
+	cfg.PolkaKey = polka_key
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/healthz", handlers.ReadinessHandler)
+
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.PolkaWebhookHandler)
 
 	mux.HandleFunc("POST /api/login", cfg.LoginHandler)
 	mux.HandleFunc("POST /api/refresh", cfg.RefreshHandler)

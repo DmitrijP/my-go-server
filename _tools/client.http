@@ -2,6 +2,7 @@
 @port = 8080
 @host = {{hostname}}:{{port}}
 @contentType = {{contentType}}
+@apiKey = f271c81ff7084ee5b99a5091b42d486e
 
 #### create user
 # @name create_user
@@ -43,7 +44,7 @@ POST http://{{host}}/api/login HTTP/1.1
 content-type: {{contentType}}
 
 {
-  "email": "dmitrij.patuk@gmx.de",
+  "email": "dmitrij.patuk3@gmx.de",
   "password": "1234567",
   "expires_in_seconds": 60
 }
@@ -94,3 +95,29 @@ Authorization: Bearer {{authToken}}
 
 POST http://{{host}}/admin/reset HTTP/1.1
 content-type: {{contentType}}
+
+
+#### Send Webhook Event
+
+POST http://{{host}}/api/polka/webhooks HTTP/1.1
+content-type: {{contentType}}
+Authorization: ApiKey {{apiKey}}
+
+{
+  "event": "user.upgraded",
+  "data": {
+    "user_id": "{{usesrId}}"
+  }
+}
+
+#### Send Wrong Webhook Event
+
+POST http://{{host}}/api/polka/webhooks HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "event": "user.upgradeds",
+  "data": {
+    "user_id": "{{usesrId}}"
+  }
+}

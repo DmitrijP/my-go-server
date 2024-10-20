@@ -10,4 +10,5 @@ type ApiConfig struct {
 	Jwt_secret     string
 	FileserverHits atomic.Int32
 	Db             database.Queries
+	PolkaKey       string
 }

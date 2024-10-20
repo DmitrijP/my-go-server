@@ -16,10 +16,11 @@ type user_create struct {
 }
 
 type user_create_response struct {
-	Id        string `json:"id"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	Email     string `json:"email"`
+	Id          string `json:"id"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	Email       string `json:"email"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 func ReadinessHandler(w http.ResponseWriter, req *http.Request) {
@@ -98,10 +99,11 @@ func (cfg *ApiConfig) ChangeUserPasswordHandler(w http.ResponseWriter, req *http
 	}
 
 	res := user_create_response{
-		Id:        updtUsr.ID.String(),
-		Email:     updtUsr.Email,
-		CreatedAt: updtUsr.CreatedAt.String(),
-		UpdatedAt: updtUsr.UpdatedAt.String(),
+		Id:          updtUsr.ID.String(),
+		Email:       updtUsr.Email,
+		CreatedAt:   updtUsr.CreatedAt.String(),
+		UpdatedAt:   updtUsr.UpdatedAt.String(),
+		IsChirpyRed: updtUsr.IsChirpyRed,
 	}
 	respondWithJSON(w, http.StatusOK, res)
 }
@@ -131,6 +133,11 @@ func (cfg *ApiConfig) UsersHandler(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusConflict, "User may already exist")
 		return
 	}
-	resObj := user_create_response{Id: user.ID.String(), CreatedAt: user.CreatedAt.String(), UpdatedAt: user.UpdatedAt.String(), Email: user.Email}
+	resObj := user_create_response{
+		Id:          user.ID.String(),
+		CreatedAt:   user.CreatedAt.String(),
+		UpdatedAt:   user.UpdatedAt.String(),
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed}
 	respondWithJSON(w, http.StatusCreated, resObj)
 }

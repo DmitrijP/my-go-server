@@ -98,3 +98,19 @@ func MakeRefreshToken() (string, error) {
 	token := hex.EncodeToString(b)
 	return token, nil
 }
+
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authorization := headers.Get("Authorization")
+	if authorization == "" {
+		return "", fmt.Errorf("No authorization Token")
+	}
+	if c := strings.Contains(strings.ToLower(authorization), "apikey"); !c {
+		return "", fmt.Errorf("Authorization type wrong: %v", authorization)
+	}
+	authParts := strings.Split(authorization, " ")
+	if len(authParts) != 2 {
+		return "", fmt.Errorf("Authorization type wrong: %v", authorization)
+	}
+	return authParts[1], nil
+}
