@@ -1,0 +1,69 @@
+@hostname = localhost
+@port = 8080
+@host = {{hostname}}:{{port}}
+@contentType = {{contentType}}
+
+#### create user
+# @name create_user
+POST http://{{host}}/api/users HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "email": "dmitrij.patuk@gmx.de",
+  "password": "1234567"
+}
+
+#### login user
+# @name login
+@authToken = {{login.response.body.token}}
+@refreshToken = {{login.response.body.refresh_token}}
+@usesrId = {{login.response.body.id}}
+POST http://{{host}}/api/login HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "email": "dmitrij.patuk@gmx.de",
+  "password": "1234567",
+  "expires_in_seconds": 60
+}
+
+#### refresh user token
+# @name refresh
+@authToken = {{login.response.body.token}}
+POST http://{{host}}/api/refresh HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{refreshToken}}
+
+#### revoke user token
+# @name revoke
+POST http://{{host}}/api/revoke HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{refreshToken}}
+
+#### Create Chirp
+# @name create_chirp
+@chirp_id = {{create_chirp.response.body.id}}
+POST http://{{host}}/api/chirps HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "body" : "hallo test test test"
+}
+
+
+#### get all chirps
+# @name get_all_chirps
+GET http://{{host}}/api/chirps HTTP/1.1
+Authorization: Bearer {{authToken}}
+
+
+#### get one chirp
+GET http://{{host}}/api/chirps/{{chirp_id}} HTTP/1.1
+Authorization: Bearer {{authToken}}
+
+
+#### RESET DB
+
+POST http://{{host}}/admin/reset HTTP/1.1
+content-type: {{contentType}}
